@@ -53,19 +53,26 @@ func AuthMiddleware(apiKey string, allowedIPs []string) func(http.Handler) http.
 }
 
 // getClientIP extracts the client's real IP address from the request
+// Priority: CF-Connecting-IP > X-Real-IP > X-Forwarded-For > RemoteAddr
 func getClientIP(r *http.Request) string {
-	// Check for X-Forwarded-For header (common with proxies/load balancers)
-	forwarded := r.Header.Get("X-Forwarded-For")
-	if forwarded != "" {
-		// Get the first IP in the list
-		ips := strings.Split(forwarded, ",")
-		return strings.TrimSpace(ips[0])
+	// Check for Cloudflare's CF-Connecting-IP header (highest priority for CF proxy/tunnel)
+	cfIP := r.Header.Get("CF-Connecting-IP")
+	if cfIP != "" {
+		return cfIP
 	}
 
-	// Check for X-Real-IP header
+	// Check for X-Real-IP header (often set by reverse proxies)
 	realIP := r.Header.Get("X-Real-IP")
 	if realIP != "" {
 		return realIP
+	}
+
+	// Check for X-Forwarded-For header (common with proxies/load balancers)
+	forwarded := r.Header.Get("X-Forwarded-For")
+	if forwarded != "" {
+		// Get the first IP in the list (original client IP)
+		ips := strings.Split(forwarded, ",")
+		return strings.TrimSpace(ips[0])
 	}
 
 	// Fall back to RemoteAddr
