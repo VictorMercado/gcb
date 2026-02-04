@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# Redeploy script: tears down docker compose, pulls latest changes, and starts containers again
 
 set -e  # Exit on any error
 
@@ -10,7 +9,10 @@ docker compose down
 echo "📥 Pulling latest changes..."
 git pull
 
-echo "🚀 Starting containers..."
+echo "� Copying .env file..."
+cp /opt/gcb/.env .
+
+echo "�🚀 Starting containers..."
 docker compose up -d --build
 
 echo "✅ Redeployment complete!"
