@@ -1,0 +1,23 @@
+# Environment variables
+.env
+
+# Service account keys (sensitive!)
+*.json
+!go.json
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of go build
+main
+
+# Go workspace file
+go.work
+

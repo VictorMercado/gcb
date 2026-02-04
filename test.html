@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GCS Image Upload Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+            background: #f8f9ff;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f1ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #e8e9ff;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .preview {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .preview img {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        #result {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            word-break: break-all;
+        }
+
+        .result.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .file-info {
+          display: flex;
+          flex-direction: row;
+          gap: 5px;
+          margin-top: 10px;
+          color: #666;
+          font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌟 GCS Image Upload</h1>
+        <p class="subtitle">Test your Google Cloud Storage upload service</p>
+
+        <div style="margin-bottom: 20px;">
+            <label for="apiKey" style="display: block; margin-bottom: 5px; color: #666; font-size: 14px; font-weight: 600;">
+                🔐 API Key (Optional - only if authentication is enabled)
+            </label>
+            <input 
+                type="text" 
+                id="apiKey" 
+                placeholder="Enter your API key here"
+                style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;"
+            >
+            <p style="margin-top: 5px; font-size: 12px; color: #999;">
+                Leave empty if authentication is disabled
+            </p>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="useSignedUrl">
+                <span style="font-size: 14px; color: #333; font-weight: 600;">Use Signed URL Upload</span>
+            </label>
+        </div>
+
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📸</div>
+            <p><strong>Click to select</strong> or drag & drop an image</p>
+            <p style="margin-top: 8px; font-size: 12px; color: #999;">PNG, JPG, GIF up to 10MB</p>
+        </div>
+
+        <input type="file" id="fileInput" accept="image/*">
+
+        <div class="file-info" id="fileInfo"></div>
+
+        <div class="preview" id="preview"></div>
+
+        <button id="uploadBtn" disabled>Upload Image</button>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const preview = document.getElementById('preview');
+        const result = document.getElementById('result');
+        const fileInfo = document.getElementById('fileInfo');
+        const apiKeyInput = document.getElementById('apiKey');
+        const useSignedUrlCheckbox = document.getElementById('useSignedUrl');
+        const filesToUpload = [];
+        const urlUpload = 'https://gcb.netarc.app/upload';
+        const urlSignedUrl = 'https://gcb.netarc.app/signedurl';
+        const devUrlUpload = 'http://localhost:8080/upload';
+        const devUrlSignedUrl = 'http://localhost:8080/signedurl';
+
+        let selectedFile = null;
+
+        // Click to select file
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            handleFile(e.target.files[0]);
+        });
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFile(e.dataTransfer.files[0]);
+        });
+
+        function handleFile(file) {
+            if (!file) return;
+
+            if (!file.type.startsWith('image/')) {
+                showResult('Please select an image file', 'error');
+                return;
+            }
+
+            filesToUpload.push(file);
+            uploadBtn.disabled = false;
+
+            // Show file info
+            fileInfo.innerHTML += `<p>📄 ${file.name} (${(file.size / 1024).toFixed(2)} KB)</p>`;
+
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                preview.innerHTML += `<img src="${e.target.result}" alt="Preview">`;
+            };
+            reader.readAsDataURL(file);
+
+            result.innerHTML = '';
+        }
+
+        uploadBtn.addEventListener('click', async () => {
+            if (filesToUpload.length === 0) return;
+
+            uploadBtn.disabled = true;
+            uploadBtn.innerHTML = 'Uploading<span class="loading"></span>';
+
+            const useSignedUrl = useSignedUrlCheckbox.checked;
+
+            try {
+              let promises = [];
+              for(const file of filesToUpload) {
+                const apiKey = apiKeyInput.value.trim();
+                const headers = {};
+                if (apiKey) {
+                    headers['X-API-Key'] = apiKey;
+                }
+
+                if (useSignedUrl) {
+                    // 1. Get Signed URL
+                    promises.push(
+                        fetch(devUrlSignedUrl, {
+                            method: 'POST',
+                            headers: {
+                                ...headers,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                filename: "cards/product1.png",
+                                contentType: file.type
+                            })
+                        })
+                        .then(res => {
+                            if (!res.ok) throw new Error('Failed to get signed URL');
+                            return res.json();
+                        })
+                        .then(data => {
+                            if (!data.success) throw new Error(data.error || 'Failed to get signed URL');
+                            
+                            // 2. Upload to Signed URL
+                            return fetch(data.url, {
+                                method: 'PUT',
+                                origin: 'http://localhost:8080',
+                                headers: {
+                                    'Content-Type': file.type
+                                },
+                                body: file
+                            }).then(uploadRes => {
+                                if (!uploadRes.ok) throw new Error('Upload to GCS failed');
+                                return {
+                                    ok: true,
+                                    json: () => Promise.resolve({
+                                        success: true,
+                                        url: data.url.split('?')[0] // Return clean URL without signature params
+                                    })
+                                };
+                            });
+                        })
+                    );
+                } else {
+                    // Standard Upload
+                    const formData = new FormData();
+                    formData.append('image', file);
+                    promises.push(fetch(devUrlUpload, {
+                        method: 'POST',
+                        headers: headers,
+                        body: formData
+                    }));
+                }
+              }
+
+              Promise.all(promises).then((responses) => {
+                responses.forEach((response) => {
+                  if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                  }
+                  response.json().then((data) => {
+                    if (data.success) {
+                      showResult(`✅ Upload successful!<br><br><strong>URL:</strong><br><a href="${data.url}" target="_blank" style="color: inherit; text-decoration: underline;">${data.url}</a>`, 'success');
+                    } else {
+                      showResult(`❌ Upload failed: ${data.error}`, 'error');
+                    }
+                  });
+                });
+              });
+            } catch (error) {
+                showResult(`❌ Error: ${error.message}`, 'error');
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = 'Upload Image';
+            }
+        });
+
+        function showResult(message, type) {
+            result.innerHTML += message;
+            result.className = `result ${type}`;
+        }
+
+        // Test server health on load
+        fetch('http://localhost:8080/health')
+            .then(res => res.json())
+            .then(data => console.log('✅ Server health check:', data))
+            .catch(err => console.error('❌ Server not responding:', err));
+    </script>
+</body>
+</html>
