@@ -132,7 +132,7 @@ func (g *GCSClient) ConfigureCORS(ctx context.Context, origins []string) error {
 	cors := []storage.CORS{
 		{
 			MaxAge:          time.Hour,
-			Methods:         []string{"GET", "HEAD", "PUT", "OPTIONS"},
+			Methods:         []string{"GET", "HEAD", "PUT", "OPTIONS", "DELETE"},
 			Origins:         origins,
 			ResponseHeaders: []string{"Content-Type", "Access-Control-Allow-Origin", "X-Requested-With"},
 		},

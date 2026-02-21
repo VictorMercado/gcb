@@ -31,21 +31,37 @@ func main() {
 	ctx := context.Background()
 
 	// Initialize GCS client
-	gcsClient, err := NewGCSClient(ctx, config.BucketName1, config.ServiceAccountPath1)
+	darlingimagesClientProd, err := NewGCSClient(ctx, config.BucketName1, config.ServiceAccountPath1)
 	if err != nil {
 		log.Fatalf("Failed to initialize GCS client: %v", err)
 	}
-	defer gcsClient.Close()
+	defer darlingimagesClientProd.Close()
 
 	// Configure CORS for the bucket
 	log.Printf("⚙️  Configuring CORS for bucket %s with origins: %v", config.BucketName1, config.AllowedOrigins)
-	if err := gcsClient.ConfigureCORS(ctx, config.AllowedOrigins); err != nil {
+	if err := darlingimagesClientProd.ConfigureCORS(ctx, config.AllowedOrigins); err != nil {
 		log.Printf("⚠️  Warning: Failed to configure bucket CORS: %v", err)
-		log.Println("    Uploads from browser might fail if CORS is not already configured correctly.")
+		log.Println("   Uploads from browser might fail if CORS is not already configured correctly.")
 	} else {
 		log.Println("✅ Bucket CORS configured successfully")
 	}
 	
+	// Initialize GCS client
+	darlingimagesClientDev, err := NewGCSClient(ctx, config.BucketName2, config.ServiceAccountPath1)
+	if err != nil {
+		log.Fatalf("Failed to initialize GCS client: %v", err)
+	}
+	defer darlingimagesClientDev.Close()
+
+	// Configure CORS for the bucket
+	log.Printf("⚙️  Configuring CORS for bucket %s with origins: %v", config.BucketName2, config.AllowedOrigins)
+	if err := darlingimagesClientDev.ConfigureCORS(ctx, config.AllowedOrigins); err != nil {
+		log.Printf("⚠️  Warning: Failed to configure bucket CORS: %v", err)
+		log.Println("   Uploads from browser might fail if CORS is not already configured correctly.")
+	} else {
+		log.Println("✅ Bucket CORS configured successfully")
+	}
+
 	// Apply authentication middleware (only to /upload endpoint)
 	authenticatedMux := http.NewServeMux()
 	authenticatedMux.HandleFunc("/health", HandleHealth)
@@ -57,11 +73,13 @@ func main() {
 		if len(config.AllowedIPs) > 0 {
 			log.Printf("🔒 IP Whitelist enabled: %v", config.AllowedIPs)
 		}
-		authenticatedMux.Handle("/upload", AuthMiddleware(config.APIKey1, config.AllowedIPs)(http.HandlerFunc(HandleUpload(gcsClient, config))))
-		authenticatedMux.Handle("/signedurl", AuthMiddleware(config.APIKey1, config.AllowedIPs)(http.HandlerFunc(HandleGenerateSignedUrl(gcsClient))))
+		authenticatedMux.Handle("/upload", AuthMiddleware(config.APIKey1, config.AllowedIPs)(http.HandlerFunc(HandleUpload(darlingimagesClientProd, config))))
+		authenticatedMux.Handle("/signedurl", AuthMiddleware(config.APIKey1, config.AllowedIPs)(http.HandlerFunc(HandleGenerateSignedUrl(darlingimagesClientProd))))
+		authenticatedMux.Handle("/upload-dev", AuthMiddleware(config.APIKey1, config.AllowedIPs)(http.HandlerFunc(HandleUpload(darlingimagesClientDev, config))))
+		authenticatedMux.Handle("/signedurl-dev", AuthMiddleware(config.APIKey1, config.AllowedIPs)(http.HandlerFunc(HandleGenerateSignedUrl(darlingimagesClientDev))))
 	} else {
 		log.Println("⚠️  WARNING: No API key configured - authentication disabled!")
-		authenticatedMux.HandleFunc("/upload", HandleUpload(gcsClient, config))
+		authenticatedMux.HandleFunc("/upload", HandleUpload(darlingimagesClientProd, config))
 	}
 	
 	// Apply CORS and Metrics middleware

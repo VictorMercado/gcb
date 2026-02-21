@@ -8,20 +8,12 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      # Mount the service account key (required)
       - /etc/keys/darlingthings-2957444ac305.json:/app/service-account-key.json:ro
     env_file:
-      - .env
+      - /etc/gcb/.env
     environment:
+    # this env is here just for documentation, most env vars will be in .env file
       - GCS_AUTH_1=/app/service-account-key.json
-      - GCS_BUCKET_NAME_1=darlingimages
-      - GCS_BUCKET_NAME_2=duelistRoses
-      - GCS_API_KEY_1
-      - GCS_API_KEY_2
-      - PORT=8080
-      - MAX_FILE_SIZE_MB=100
-      - ALLOWED_IPS=
-      - ALLOWED_ORIGINS=*
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
